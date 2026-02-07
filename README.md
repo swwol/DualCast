@@ -33,7 +33,7 @@ Under the hood it uses macOS CoreAudio APIs to do what Audio MIDI Setup does man
 
 ### Build from source
 ```bash
-git clone https://github.com/YOUR_USERNAME/DualCast.git
+git clone https://github.com/swwol/DualCast.git
 cd DualCast
 open DualCast.xcodeproj
 # Build and run (⌘R) in Xcode
