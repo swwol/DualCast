@@ -2,7 +2,7 @@
 
 Use two Bluetooth headphones on your Mac at the same time — without touching Audio MIDI Setup.
 
-<img width="240" alt="DualCast menu bar" src="https://github.com/user-attachments/assets/placeholder.png">
+<img width="128" alt="DualCast icon" src="icon.png">
 
 ## What it does
 
