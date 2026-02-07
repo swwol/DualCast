@@ -69,6 +69,7 @@ class AudioManager: ObservableObject {
         savedDevice1UID = UserDefaults.standard.string(forKey: kDevice1UIDKey)
         savedDevice2UID = UserDefaults.standard.string(forKey: kDevice2UIDKey)
         refreshDevices()
+        destroyExistingDualCastDevice()
     }
 
     // MARK: - Persistence
@@ -170,6 +171,8 @@ class AudioManager: ObservableObject {
     // MARK: - Multi-Output Device
 
     func createMultiOutputDevice(device1: AudioDevice, device2: AudioDevice) -> Bool {
+        // Clean up any existing DualCast aggregate device (from prior sessions or crashes)
+        destroyExistingDualCastDevice()
         destroyMultiOutputDeviceQuietly()
 
         let subDevices: [[String: Any]] = [
@@ -191,7 +194,7 @@ class AudioManager: ObservableObject {
         )
 
         guard status == noErr, aggregateDeviceID != 0 else {
-            print("Failed to create multi-output device: \(status)")
+            print("DualCast: Failed to create multi-output device. OSStatus=\(status) d1=\(device1.uid) d2=\(device2.uid)")
             return false
         }
 
@@ -202,6 +205,35 @@ class AudioManager: ObservableObject {
 
         setDefaultOutput(deviceID: aggregateDeviceID)
         return true
+    }
+
+    /// Finds and destroys any lingering aggregate device with our UID from a previous session
+    private func destroyExistingDualCastDevice() {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress, 0, nil, &dataSize
+        ) == noErr else { return }
+
+        let count = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress, 0, nil, &dataSize, &deviceIDs
+        ) == noErr else { return }
+
+        for deviceID in deviceIDs {
+            if let uid = getUID(deviceID: deviceID), uid == multiOutputUID {
+                print("DualCast: Destroying stale aggregate device \(deviceID)")
+                AudioHardwareDestroyAggregateDevice(deviceID)
+            }
+        }
     }
 
     func destroyMultiOutputDevice() {
@@ -283,7 +315,7 @@ class AudioManager: ObservableObject {
         return status == noErr ? name as String : nil
     }
 
-    private func getUID(deviceID: AudioDeviceID) -> String? {
+    func getUID(deviceID: AudioDeviceID) -> String? {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceUID,
             mScope: kAudioObjectPropertyScopeGlobal,
