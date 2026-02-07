@@ -120,18 +120,29 @@ class AudioManager: ObservableObject {
             ))
         }
 
-        DispatchQueue.main.async {
-            self.outputDevices = devices
-            self.bluetoothOutputDevices = devices.filter { $0.isBluetooth }
+        let newDevices = devices
+        let newBluetooth = devices.filter { $0.isBluetooth }
+        if Thread.isMainThread {
+            self.outputDevices = newDevices
+            self.bluetoothOutputDevices = newBluetooth
+        } else {
+            DispatchQueue.main.async {
+                self.outputDevices = newDevices
+                self.bluetoothOutputDevices = newBluetooth
+            }
         }
     }
 
     // MARK: - Output Switching
 
     func switchTo(_ mode: OutputMode) {
+        refreshDevices()
         switch mode {
         case .combined:
-            guard let d1 = savedDevice1, let d2 = savedDevice2 else { return }
+            guard let d1 = savedDevice1, let d2 = savedDevice2 else {
+                print("DualCast: Cannot combine — saved devices not found. d1=\(savedDevice1UID ?? "nil") d2=\(savedDevice2UID ?? "nil") connected=\(outputDevices.map { $0.uid })")
+                return
+            }
             if createMultiOutputDevice(device1: d1, device2: d2) {
                 DispatchQueue.main.async { self.activeOutput = .combined }
             }
@@ -170,7 +181,7 @@ class AudioManager: ObservableObject {
             kAudioAggregateDeviceNameKey as String: multiOutputName,
             kAudioAggregateDeviceUIDKey as String: multiOutputUID,
             kAudioAggregateDeviceSubDeviceListKey as String: subDevices,
-            kAudioAggregateDeviceMasterSubDeviceKey as String: device1.uid,
+            kAudioAggregateDeviceMainSubDeviceKey as String: device1.uid,
             kAudioAggregateDeviceIsStackedKey as String: 1 as UInt32
         ]
 

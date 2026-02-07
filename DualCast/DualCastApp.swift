@@ -97,7 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func makeMenuBarIcon() -> NSImage {
         let iconHeight: CGFloat = 16
-        let gap: CGFloat = 2
+        let overlap: CGFloat = 5
         let symbolConfig = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
 
         guard let baseSymbol = NSImage(systemSymbolName: "headphones", accessibilityDescription: nil)?
@@ -106,7 +106,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let symbolSize = baseSymbol.size
-        let totalWidth = symbolSize.width * 2 + gap
+        let totalWidth = symbolSize.width * 2 - overlap
         let canvasSize = NSSize(width: totalWidth, height: iconHeight)
 
         let activeColor = NSColor.systemGreen
@@ -129,15 +129,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let image = NSImage(size: canvasSize, flipped: false) { rect in
             let yOffset = (rect.height - symbolSize.height) / 2
 
-            // Left headphone
             let leftRect = NSRect(x: 0, y: yOffset, width: symbolSize.width, height: symbolSize.height)
-            let leftTinted = Self.tintedSymbol(baseSymbol, color: leftActive ? activeColor : inactiveColor)
-            leftTinted.draw(in: leftRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            let rightRect = NSRect(x: symbolSize.width - overlap, y: yOffset, width: symbolSize.width, height: symbolSize.height)
 
-            // Right headphone
-            let rightRect = NSRect(x: symbolSize.width + gap, y: yOffset, width: symbolSize.width, height: symbolSize.height)
+            let leftTinted = Self.tintedSymbol(baseSymbol, color: leftActive ? activeColor : inactiveColor)
             let rightTinted = Self.tintedSymbol(baseSymbol, color: rightActive ? activeColor : inactiveColor)
-            rightTinted.draw(in: rightRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+
+            if leftActive && rightActive {
+                // Both active: draw both at full opacity, left in front
+                rightTinted.draw(in: rightRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+                leftTinted.draw(in: leftRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            } else if rightActive && !leftActive {
+                // Right is active: draw left behind, right in front
+                leftTinted.draw(in: leftRect, from: .zero, operation: .sourceOver, fraction: 0.7)
+                rightTinted.draw(in: rightRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            } else {
+                // Left active or neither: draw right behind, left in front
+                rightTinted.draw(in: rightRect, from: .zero, operation: .sourceOver, fraction: 0.7)
+                leftTinted.draw(in: leftRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            }
 
             return true
         }
